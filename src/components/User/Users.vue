@@ -35,7 +35,7 @@
             <el-button type="primary" icon="el-icon-edit" size="mini" @click="showEditDialog(scope.row.id)"></el-button>
             <el-button type="danger" icon="el-icon-delete" size="mini" @click="removeUserById(scope.row.id)"></el-button>
             <el-tooltip :enterable="false" class="item" effect="dark" content="分配角色" placement="top">
-              <el-button type="warning" icon="el-icon-setting" size="mini"></el-button>
+              <el-button type="warning" icon="el-icon-setting" size="mini" @click="setRole(scope.row)"></el-button>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -94,7 +94,27 @@
     <el-button type="primary" @click="editUserInfo">确 定</el-button>
   </span>
     </el-dialog>
-
+    <el-dialog
+      title="分配角色"
+      :visible.sync="setRoleDialogVisible"
+      width="50%" @close="setRoleClosed">
+      <div>
+        <p>当前的用户:{{this.userInfo.username}}</p>
+        <p>当前的角色:{{this.userInfo.role_name}}</p>
+        <el-select v-model="selectedRoleId" placeholder="请选择">
+          <el-option
+            v-for="item in roleList"
+            :key="item.id"
+            :label="item.roleName"
+            :value="item.id">
+          </el-option>
+        </el-select>
+      </div>
+      <span slot="footer" class="dialog-footer">
+    <el-button @click="setRoleDialogVisible = false">取 消</el-button>
+    <el-button type="primary" @click="saveRoleInfo">确 定</el-button>
+  </span>
+    </el-dialog>
 
   </div>
 
@@ -159,7 +179,11 @@
             { required: true, message: '请输入手机号', trigger: 'blur' },
             { validator:checkMobile, trigger: 'blur' }
           ]
-        }
+        },
+        setRoleDialogVisible:false,
+        userInfo :{},
+        roleList:[],
+        selectedRoleId:''
       }
     },
     methods:{
@@ -170,7 +194,7 @@
         if(res.meta.status !== 200) return this.$message.error('获取用户列表失败~')
         this.userList = res.data.users
         this.total = res.data.total
-        console.log(res)
+
       },
       handleSizeChange(newSize){
         // console.log(newSize)
@@ -231,18 +255,39 @@
           cancelButtonText: '取消',
           type: 'warning'
         }).catch(err=>err)
-        console.log(confirmResult)
+
         if(confirmResult!=='confirm'){
           this.$message.info('已经取消删除')
         }
-        const { data: res } = await this.$http.delete('users/' + id)
-        // console.log(res)
-        if (res.meta.status !== 200 && confirmResult === 'confirm') {
-          return this.$message.error('删除用户失败！')
+        if(confirmResult==='confirm'){
+          const { data: res } = await this.$http.delete('users/'+id)
+          if (res.meta.status !== 200 && confirmResult === 'confirm') {
+              return this.$message.error('删除用户失败！')
+            }
+              this.$message.success('删除用户成功！')
+                this.getUserList()
+          this.setRoleDialogVisible =false
         }
-        this.$message.success('删除用户成功！')
-        this.getUserList()
 
+
+      },
+      async setRole(userInfo){
+        this.userInfo = userInfo
+        const {data:res} = await this.$http.get('roles')
+        this.roleList = res.data
+        this.setRoleDialogVisible = true
+      },
+      async saveRoleInfo(){
+        const {data:res} = await this.$http.put(`users/${this.userInfo.id}/role`,{rid:this.selectedRoleId})
+        if(res.meta.status!==200){
+          return  this.$message.error('更新角色失败~')
+        }
+        this.$message.success('更新角色成功~')
+        this.getUserList()
+        this.setRoleDialogVisible = false
+      },
+      setRoleClosed(){
+        this.selectedRoleId = ''
       }
     },
     created() {
